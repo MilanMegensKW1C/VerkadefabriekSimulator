@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using TMPro;
 using System.Collections;
 
@@ -7,7 +7,7 @@ public class MoneyUI : MonoBehaviour
     public TMP_Text tmpText;
 
     [Header("Format")]
-    public string prefix = "� ";
+    public string prefix = "€ ";
     public string thousandSeparator = ".";
 
     [Header("Animation")]
@@ -21,7 +21,10 @@ public class MoneyUI : MonoBehaviour
         if (MoneyManager.Instance != null)
         {
             MoneyManager.Instance.OnMoneyChanged += PlayAnimation;
-            PlayAnimation(MoneyManager.Instance.Money);   // gebruik Money, geen CurrentMoney
+
+            // FIX → direct juiste geld tonen zonder animatie
+            currentDisplayed = MoneyManager.Instance.Money;
+            UpdateMoneyText(currentDisplayed);
         }
         else
         {
