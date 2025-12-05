@@ -1,0 +1,80 @@
+# Unity generated files
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+Assets/AssetStoreTools*
+
+# Unity auto-generated VS/VSCode/JetBrains Rider files
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# Crash and debug logs
+sysinfo.txt
+*.stacktrace
+
+# Unity Cloud Build
+*.cloud
+
+# Build results
+*.apk
+*.aab
+*.unitypackage
+*.app
+*.exe
+*.dll
+*.pdb
+*.mdb
+*.so
+*.dylib
+*.zip
+
+# Visual Studio Code workspace
+*.code-workspace
+
+# Rider
+.idea/
+*.sln.iml
+
+# Collaborate
+.collabignore
+.collab/
+
+# Addressable Assets
+/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/AssetGroups/
+
+# PlasticSCM
+.plastic/
+ignore.conf
+*/.plastic/
+*/ignore.conf
+
+# Other
+*.swp
+*.bak
+*.orig
+*.tmp
+
+# Uncomment if you have custom packages
+# Packages/
