@@ -136,11 +136,16 @@ public class DialogueUI : MonoBehaviour
     // ----------------------------------------------------------
     // End Dialogue
     // ----------------------------------------------------------
+    public System.Action OnDialogueFinished;
+
     void CloseDialogue()
     {
         dialoguePanel.SetActive(false);
         LockControls(false);
+
+        OnDialogueFinished?.Invoke();
     }
+
 
     // ----------------------------------------------------------
     // Player control lock

@@ -185,33 +185,6 @@ public class VendingMachine : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // Income Loop
-    // ---------------------------------------------------------
-    IEnumerator IncomeLoop()
-    {
-        while (true)
-        {
-            yield return new WaitForSeconds(moneyInterval);
-
-            MoneyManager.Instance.AddMoney(CurrentIncome);
-
-            StartCoroutine(IncomePopup());
-        }
-    }
-
-    IEnumerator IncomePopup()
-    {
-        countdownText.gameObject.SetActive(true);
-        countdownText.text = "+" + CurrentIncome;
-
-        if (incomeSound)
-            audioSource.PlayOneShot(incomeSound);
-
-        yield return new WaitForSeconds(0.5f);
-        countdownText.gameObject.SetActive(false);
-    }
-
-    // ---------------------------------------------------------
     // Triggers
     // ---------------------------------------------------------
     void OnTriggerEnter(Collider other)

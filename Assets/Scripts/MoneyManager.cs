@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -6,17 +6,23 @@ using UnityEngine;
 
 public class MoneyManager : MonoBehaviour
 {
+    private class MachineData
+    {
+        public VendingMachine machine;
+        public int income;
+        public float interval;
+        public float nextTime;
+    }
+
     public static MoneyManager Instance;
 
-    private Dictionary<VendingMachine, int> activeMachines = new Dictionary<VendingMachine, int>();
+    private List<MachineData> machines = new List<MachineData>();
 
     private AudioSource incomeAudioSource;
 
     [Header("Start Geld")]
     public int startMoney = 250;
-
-    [Header("UI (optioneel)")]
-    public TMP_Text moneyText;
+    public bool resetMoneyOnStart = true;
 
     [Header("Geluiden")]
     public AudioClip gainMoneySound;
@@ -45,8 +51,9 @@ public class MoneyManager : MonoBehaviour
 
     void Start()
     {
-        currentMoney = startMoney;
-        UpdateMoneyTextInstant();
+        if (resetMoneyOnStart)
+            currentMoney = startMoney;
+
         OnMoneyChanged?.Invoke(currentMoney);
 
         StartCoroutine(GlobalIncomeLoop());
@@ -63,7 +70,6 @@ public class MoneyManager : MonoBehaviour
         if (gainMoneySound != null && incomeAudioSource != null)
             incomeAudioSource.PlayOneShot(gainMoneySound);
 
-        StartCoroutine(AnimateMoneyChange(oldValue, currentMoney));
         OnMoneyChanged?.Invoke(currentMoney);
     }
 
@@ -78,38 +84,9 @@ public class MoneyManager : MonoBehaviour
         int oldValue = currentMoney;
         currentMoney -= amount;
 
-        StartCoroutine(AnimateMoneyChange(oldValue, currentMoney));
         OnMoneyChanged?.Invoke(currentMoney);
 
         return true;
-    }
-
-    // ----------------------------------------------------------
-    // UI animatie
-    // ----------------------------------------------------------
-    IEnumerator AnimateMoneyChange(int oldValue, int newValue)
-    {
-        if (moneyText == null)
-            yield break;
-
-        float t = 0f;
-        float duration = 0.35f;
-
-        while (t < 1f)
-        {
-            t += Time.deltaTime / duration;
-            int display = Mathf.RoundToInt(Mathf.Lerp(oldValue, newValue, t));
-            moneyText.text = display.ToString();
-            yield return null;
-        }
-
-        moneyText.text = newValue.ToString();
-    }
-
-    private void UpdateMoneyTextInstant()
-    {
-        if (moneyText != null)
-            moneyText.text = currentMoney.ToString();
     }
 
     // ====== DEUR PURCHASE SYSTEM ======
@@ -131,7 +108,6 @@ public class MoneyManager : MonoBehaviour
 
         purchasedDoors.Add(doorId);
 
-        StartCoroutine(AnimateMoneyChange(oldValue, currentMoney));
         OnMoneyChanged?.Invoke(currentMoney);
 
         return true;
@@ -139,27 +115,44 @@ public class MoneyManager : MonoBehaviour
 
     public void RegisterVendingMachine(VendingMachine machine, int income)
     {
-        if (!activeMachines.ContainsKey(machine))
-            activeMachines.Add(machine, income);
-        else
-            activeMachines[machine] = income;
+        // check of hij al bestaat → update
+        foreach (var m in machines)
+        {
+            if (m.machine == machine)
+            {
+                m.income = income;
+                m.interval = machine.moneyInterval;
+                return;
+            }
+        }
+
+        // anders → nieuwe toevoegen
+        machines.Add(new MachineData
+        {
+            machine = machine,
+            income = income,
+            interval = machine.moneyInterval,
+            nextTime = Time.time + machine.moneyInterval
+        });
     }
 
     IEnumerator GlobalIncomeLoop()
     {
         while (true)
         {
-            yield return new WaitForSeconds(3f);
+            yield return null; // elke frame checken
 
-            foreach (var machine in activeMachines)
+            float t = Time.time;
+
+            foreach (var m in machines)
             {
-                AddMoney(machine.Value);
-
-                // 2D income sound
-                if (machine.Key.incomeSound != null)
+                if (t >= m.nextTime)
                 {
-                    // Gebruik incomeAudioSource die spatialBlend = 0 heeft
-                    incomeAudioSource.PlayOneShot(machine.Key.incomeSound);
+                    AddMoney(m.income);
+                    if (m.machine.incomeSound)
+                        incomeAudioSource.PlayOneShot(m.machine.incomeSound);
+
+                    m.nextTime = t + m.interval;
                 }
             }
         }

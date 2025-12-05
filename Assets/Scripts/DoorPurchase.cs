@@ -137,6 +137,8 @@ public class DoorPurchase : MonoBehaviour
 
     IEnumerator FlashPriceRed()
     {
+        if (priceTMPText == null) yield break;
+
         Color original = priceTMPText.color;
 
         priceTMPText.color = Color.red;
@@ -153,6 +155,26 @@ public class DoorPurchase : MonoBehaviour
     private void ProceedEnter()
     {
         if (!string.IsNullOrEmpty(targetSceneName))
-            SceneManager.LoadScene(targetSceneName);
+        {
+            GameObject p = GameObject.FindGameObjectWithTag("Player");
+            if (p != null)
+            {
+                // Sla NIET de wereldpositie op (die hoort bij de huidige scène).
+                // Sla wél de deur-id en gewenste rotatie (yaw +180) op — die gebruiken we later in de LOBBY-scene.
+                SpawnManager.returnDoorId = doorId;
+
+                Vector3 rot = p.transform.eulerAngles;
+                rot.y += 180f; // zodanig dat bij terugkomst je van de deur af kijkt
+                // bewaar pitch (x) en z indien gewenst:
+                SpawnManager.returnEuler = new Vector3(rot.x, rot.y, rot.z);
+
+                SpawnManager.hasReturnSpawn = true;
+            }
+
+            if (SceneFader.Instance != null)
+                SceneFader.Instance.FadeToScene(targetSceneName);
+            else
+                SceneManager.LoadScene(targetSceneName);
+        }
     }
 }
