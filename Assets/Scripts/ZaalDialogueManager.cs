@@ -58,7 +58,7 @@ public class ZaalDialogueManager : MonoBehaviour
                 textLines.Add(l.text);
         }
 
-        textLines.Add("Hier heb je 300 euro, koop je eerste stoel.");
+        textLines.Add("Hier heb je 300 euro, koop maar je eerste stoel.");
 
         // Luisteren naar einde dialog
         DialogueUI.Instance.OnDialogueFinished += OnDialogueDone;
