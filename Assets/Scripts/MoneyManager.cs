@@ -1,24 +1,40 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 
 public class MoneyManager : MonoBehaviour
 {
-    private class MachineData
+    // ------------------------------
+    //  Data structs
+    // ------------------------------
+    private class SeatData
+    {
+        public string seatId;
+        public int incomePerMinute;
+    }
+
+    private class VendingData
     {
         public VendingMachine machine;
-        public int income;
+        public int incomePerMinute;
         public float interval;
         public float nextTime;
     }
 
+    // ------------------------------
+    //  Singleton
+    // ------------------------------
     public static MoneyManager Instance;
 
-    private List<MachineData> machines = new List<MachineData>();
+    // runtime data
+    private Dictionary<string, SeatData> seatData = new Dictionary<string, SeatData>();
+    private List<VendingData> vendingMachines = new List<VendingData>();
 
-    private AudioSource incomeAudioSource;
+    // persistent seat levels
+    private Dictionary<string, int> savedSeatLevels = new Dictionary<string, int>();
+
+    private AudioSource incomeAudio;
 
     [Header("Start Geld")]
     public int startMoney = 250;
@@ -32,15 +48,25 @@ public class MoneyManager : MonoBehaviour
     private int currentMoney;
     public int Money => currentMoney;
 
+    private float globalTimer = 0f;
+    private const float GLOBAL_PAY_INTERVAL = 60f;
+
+    private readonly HashSet<string> purchasedItems = new HashSet<string>();
+
+
+    // ------------------------------
+    //  Awake + Start
+    // ------------------------------
     void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(this.gameObject);
-            incomeAudioSource = gameObject.AddComponent<AudioSource>();
-            incomeAudioSource.spatialBlend = 0f; // 0 = volledig 2D
-            incomeAudioSource.playOnAwake = false;
+
+            incomeAudio = gameObject.AddComponent<AudioSource>();
+            incomeAudio.spatialBlend = 0f;
+            incomeAudio.playOnAwake = false;
         }
         else
         {
@@ -55,106 +81,210 @@ public class MoneyManager : MonoBehaviour
             currentMoney = startMoney;
 
         OnMoneyChanged?.Invoke(currentMoney);
-
-        StartCoroutine(GlobalIncomeLoop());
+        StartCoroutine(TickerLoop());
     }
 
-    // ----------------------------------------------------------
-    // Geld toevoegen en UI animatie
-    // ----------------------------------------------------------
+    // ------------------------------
+    //  Money ops
+    // ------------------------------
     public void AddMoney(int amount)
     {
-        int oldValue = currentMoney;
+        if (amount == 0) return;
+
         currentMoney += amount;
 
-        if (gainMoneySound != null && incomeAudioSource != null)
-            incomeAudioSource.PlayOneShot(gainMoneySound);
+        if (gainMoneySound != null)
+            incomeAudio.PlayOneShot(gainMoneySound);
 
         OnMoneyChanged?.Invoke(currentMoney);
     }
 
-    // ----------------------------------------------------------
-    // TryRemoveMoney (voor vending machines)
-    // ----------------------------------------------------------
     public bool TryRemoveMoney(int amount)
     {
-        if (currentMoney < amount)
-            return false;
+        if (currentMoney < amount) return false;
 
-        int oldValue = currentMoney;
         currentMoney -= amount;
-
         OnMoneyChanged?.Invoke(currentMoney);
-
         return true;
     }
 
-    // ====== DEUR PURCHASE SYSTEM ======
 
+    // ------------------------------
+    // Door purchase
+    // ------------------------------
     private readonly HashSet<string> purchasedDoors = new HashSet<string>();
 
-    public bool IsDoorPurchased(string doorId)
-    {
-        return purchasedDoors.Contains(doorId);
-    }
+    public bool IsDoorPurchased(string doorId) => purchasedDoors.Contains(doorId);
 
     public bool TryBuyDoor(string doorId, int price)
     {
-        if (currentMoney < price)
-            return false;
+        if (currentMoney < price) return false;
 
-        int oldValue = currentMoney;
         currentMoney -= price;
-
         purchasedDoors.Add(doorId);
-
         OnMoneyChanged?.Invoke(currentMoney);
-
         return true;
     }
 
-    public void RegisterVendingMachine(VendingMachine machine, int income)
+
+    // ------------------------------
+    //  Seat persistence
+    // ------------------------------
+    public void SaveSeatLevel(string seatId, int level)
     {
-        // check of hij al bestaat → update
-        foreach (var m in machines)
+        savedSeatLevels[seatId] = level;
+    }
+
+    public int GetSeatLevel(string seatId)
+    {
+        if (savedSeatLevels.TryGetValue(seatId, out int lvl))
+            return lvl;
+
+        return 0;
+    }
+
+
+    // ------------------------------
+    // Seat API (runtime income)
+    // ------------------------------
+    public void RegisterSeat(SeatSlot seat, int incomePerMinute)
+    {
+        if (seatData.ContainsKey(seat.seatId))
         {
-            if (m.machine == machine)
+            seatData[seat.seatId].incomePerMinute = incomePerMinute;
+        }
+        else
+        {
+            seatData.Add(seat.seatId, new SeatData
             {
-                m.income = income;
-                m.interval = machine.moneyInterval;
+                seatId = seat.seatId,
+                incomePerMinute = incomePerMinute
+            });
+        }
+    }
+
+    public void UpdateSeatIncome(SeatSlot seat, int newIncomePerMinute)
+    {
+        if (seatData.ContainsKey(seat.seatId))
+        {
+            seatData[seat.seatId].incomePerMinute = newIncomePerMinute;
+        }
+        else
+        {
+            RegisterSeat(seat, newIncomePerMinute);
+        }
+    }
+
+
+    // ------------------------------
+    // Vending API
+    // ------------------------------
+    public void RegisterVendingMachine(VendingMachine machine, int incomePerMinute)
+    {
+        float interval = 60f;
+
+        try { interval = machine.moneyInterval; }
+        catch { interval = 60f; }
+
+        foreach (var v in vendingMachines)
+        {
+            if (v.machine == machine)
+            {
+                v.incomePerMinute = incomePerMinute;
+                v.interval = interval;
                 return;
             }
         }
 
-        // anders → nieuwe toevoegen
-        machines.Add(new MachineData
+        vendingMachines.Add(new VendingData
         {
             machine = machine,
-            income = income,
-            interval = machine.moneyInterval,
-            nextTime = Time.time + machine.moneyInterval
+            incomePerMinute = incomePerMinute,
+            interval = interval,
+            nextTime = Time.time + interval
         });
     }
 
-    IEnumerator GlobalIncomeLoop()
+    public void UpdateVendingMachine(VendingMachine machine, int newIncomePerMinute)
+    {
+        foreach (var v in vendingMachines)
+        {
+            if (v.machine == machine)
+            {
+                v.incomePerMinute = newIncomePerMinute;
+                return;
+            }
+        }
+
+        RegisterVendingMachine(machine, newIncomePerMinute);
+    }
+
+
+    // ------------------------------
+    //  Income Ticker
+    // ------------------------------
+    IEnumerator TickerLoop()
     {
         while (true)
         {
-            yield return null; // elke frame checken
+            yield return null;
+            float now = Time.time;
 
-            float t = Time.time;
-
-            foreach (var m in machines)
+            // vending payout timers
+            foreach (var v in vendingMachines)
             {
-                if (t >= m.nextTime)
+                if (now >= v.nextTime)
                 {
-                    AddMoney(m.income);
-                    if (m.machine.incomeSound)
-                        incomeAudioSource.PlayOneShot(m.machine.incomeSound);
+                    if (v.incomePerMinute > 0)
+                        AddMoney(v.incomePerMinute);
 
-                    m.nextTime = t + m.interval;
+                    v.nextTime = now + Mathf.Max(0.01f, v.interval);
                 }
             }
+
+            // seat payouts
+            globalTimer += Time.deltaTime;
+
+            if (globalTimer >= GLOBAL_PAY_INTERVAL)
+            {
+                int total = 0;
+
+                foreach (var s in seatData.Values)
+                    total += s.incomePerMinute;
+
+                if (total > 0)
+                    AddMoney(total);
+
+                globalTimer %= GLOBAL_PAY_INTERVAL;
+            }
         }
+    }
+
+
+    // ------------------------------
+    // Utility
+    // ------------------------------
+    public int GetTotalIncomePerMinute()
+    {
+        int total = 0;
+        foreach (var s in seatData.Values) total += s.incomePerMinute;
+        foreach (var v in vendingMachines) total += v.incomePerMinute;
+        return total;
+    }
+
+    // Check of generiek item gekocht is
+    public bool IsItemPurchased(string itemId)
+    {
+        return purchasedItems.Contains(itemId);
+    }
+
+    // Probeer generiek item te kopen; return true als geslaagd
+    public bool TryBuyItem(string itemId, int price)
+    {
+        if (currentMoney < price) return false;
+        currentMoney -= price;
+        purchasedItems.Add(itemId);
+        OnMoneyChanged?.Invoke(currentMoney);
+        return true;
     }
 }
