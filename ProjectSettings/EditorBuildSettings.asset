@@ -14,4 +14,16 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/zaal1.unity
     guid: c6887bc40cbdc6648a842f39e92031d7
+  - enabled: 1
+    path: Assets/Scenes/zaal2.unity
+    guid: 47d8f497b3fe58640b4b22086ba53e3f
+  - enabled: 1
+    path: Assets/Scenes/zaal3.unity
+    guid: b4978a9dcc03ac04fa100e85548c2bd5
+  - enabled: 1
+    path: Assets/Scenes/zaal4.unity
+    guid: 3636963941f7b814c9a267caba1348eb
+  - enabled: 1
+    path: Assets/Scenes/zaal5.unity
+    guid: 3c533c3ccdb712549a8b48dbce2babc3
   m_configObjects: {}
