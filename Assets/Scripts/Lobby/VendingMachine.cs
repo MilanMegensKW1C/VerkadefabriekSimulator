@@ -1,55 +1,71 @@
-﻿using UnityEngine;
+﻿/*
+ * VendingMachine.cs
+ * Auteur: Milan Megens
+ */
+
+using UnityEngine;
 using TMPro;
 using System.Collections;
 
 public class VendingMachine : MonoBehaviour
 {
+    // Basis instellingen
     [Header("Instellingen")]
-    public string playerTag = "Player";
-    public int maxLevel = 5;
+    public string playerTag = "Player";  
+    public int maxLevel = 5;             
 
+    // Kosten en inkomsten per level
     [Header("Level Costs / Income")]
-    public int[] levelCosts = new int[6];
-    public int[] levelIncome = new int[6];
-    public float moneyInterval = 3f;
+    public int[] levelCosts = new int[6];    
+    public int[] levelIncome = new int[6];    
+    public float moneyInterval = 3f;         
 
+    // UI: kopen
     [Header("UI - Buy Popup")]
-    public GameObject buyPopup;
-    public TextMeshProUGUI buyPriceText;
-    public TextMeshProUGUI buyIncomeText;
+    public GameObject buyPopup;               
+    public TextMeshProUGUI buyPriceText;    
+    public TextMeshProUGUI buyIncomeText;    
 
+    // UI: upgraden
     [Header("UI - Upgrade Popup")]
-    public GameObject upgradePopup;
-    public TextMeshProUGUI upgradePriceText;
-    public TextMeshProUGUI upgradeIncomeText;
+    public GameObject upgradePopup;             
+    public TextMeshProUGUI upgradePriceText;      
+    public TextMeshProUGUI upgradeIncomeText;    
     public TextMeshProUGUI upgradePreviousIncomeText;
 
+    // UI: countdown / geld indicatie
     [Header("UI - Geld Popup")]
     public TextMeshProUGUI countdownText;
 
+    // Interactie UI
     [Header("Interact Prompt (E)")]
-    public GameObject interactCanvas;
+    public GameObject interactCanvas;   
 
+    // Audio
     [Header("Audio")]
-    public AudioSource audioSource;
-    public AudioClip buySound;
-    public AudioClip errorSound;
-    public AudioClip incomeSound;
+    public AudioSource audioSource;             
+    public AudioClip buySound;                 
+    public AudioClip errorSound;                
+    public AudioClip incomeSound;              
 
-    private bool isPurchased = false;
-    private bool playerNear = false;
-    private int upgradeLevel = 0;
+    // Interne state
+    private bool isPurchased = false;    
+    private bool playerNear = false;    
+    private int upgradeLevel = 0;     
 
+    // Huidige inkomsten op basis van level
     private int CurrentIncome => levelIncome[upgradeLevel];
 
     void Start()
     {
+        // Zorg dat er altijd een AudioSource aanwezig is
         if (!audioSource)
         {
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.spatialBlend = 1f;
         }
 
+        // Alle UI standaard uit
         buyPopup.SetActive(false);
         upgradePopup.SetActive(false);
         if (countdownText) countdownText.gameObject.SetActive(false);
@@ -58,16 +74,19 @@ public class VendingMachine : MonoBehaviour
 
     void Update()
     {
+        // Zorgt dat de interact UI altijd naar de camera kijkt
         Billboard();
 
+        // Interactie met E
         if (playerNear && Input.GetKeyDown(KeyCode.E))
         {
             if (!isPurchased)
-                ShowBuyPopup();
+                ShowBuyPopup();       // Nog niet gekocht
             else
-                ShowUpgradePopup();
+                ShowUpgradePopup();   // Al gekocht → upgraden
         }
 
+        // Afhandeling van popups
         if (buyPopup.activeSelf || upgradePopup.activeSelf)
         {
             if (Input.GetKeyDown(KeyCode.Return))
@@ -80,13 +99,12 @@ public class VendingMachine : MonoBehaviour
                 HidePopups();
         }
 
+        // Toon interact prompt alleen als speler dichtbij is
         if (interactCanvas)
             interactCanvas.SetActive(playerNear && !buyPopup.activeSelf && !upgradePopup.activeSelf);
     }
 
-    // ---------------------------------------------------------
-    // Billboard
-    // ---------------------------------------------------------
+    // Billboard: laat UI naar camera kijken
     void Billboard()
     {
         if (interactCanvas && Camera.main)
@@ -96,11 +114,10 @@ public class VendingMachine : MonoBehaviour
         }
     }
 
-    // ---------------------------------------------------------
-    // BUY
-    // ---------------------------------------------------------
+    // BUY: eerste aankoop
     void ShowBuyPopup()
     {
+        // Toon prijs en income van level 0
         buyPriceText.text = levelCosts[0].ToString();
         buyIncomeText.text = levelIncome[0].ToString();
 
@@ -110,6 +127,7 @@ public class VendingMachine : MonoBehaviour
 
     void ConfirmBuy()
     {
+        // Check of speler genoeg geld heeft
         if (!MoneyManager.Instance.TryRemoveMoney(levelCosts[0]))
         {
             if (errorSound) audioSource.PlayOneShot(errorSound);
@@ -120,26 +138,27 @@ public class VendingMachine : MonoBehaviour
 
         if (buySound) audioSource.PlayOneShot(buySound);
 
+        // Registreer machine bij MoneyManager
         MoneyManager.Instance.RegisterVendingMachine(this, CurrentIncome);
 
         HidePopups();
     }
 
-    // ---------------------------------------------------------
     // UPGRADE
-    // ---------------------------------------------------------
     void ShowUpgradePopup()
     {
         bool maxed = upgradeLevel >= maxLevel;
 
         if (maxed)
         {
+            // Max level bereikt
             upgradePriceText.text = "MAX";
             upgradeIncomeText.text = levelIncome[upgradeLevel].ToString();
             upgradePreviousIncomeText.gameObject.SetActive(false);
         }
         else
         {
+            // Toon volgende upgrade info
             upgradePriceText.text = levelCosts[upgradeLevel + 1].ToString();
             upgradeIncomeText.text = levelIncome[upgradeLevel + 1].ToString();
             upgradePreviousIncomeText.text = "nu " + levelIncome[upgradeLevel];
@@ -152,6 +171,7 @@ public class VendingMachine : MonoBehaviour
 
     void ConfirmUpgrade()
     {
+        // Beveiliging tegen upgraden boven max
         if (upgradeLevel >= maxLevel)
         {
             if (errorSound) audioSource.PlayOneShot(errorSound);
@@ -160,6 +180,7 @@ public class VendingMachine : MonoBehaviour
 
         int cost = levelCosts[upgradeLevel + 1];
 
+        // Check geld
         if (!MoneyManager.Instance.TryRemoveMoney(cost))
         {
             if (errorSound) audioSource.PlayOneShot(errorSound);
@@ -168,6 +189,7 @@ public class VendingMachine : MonoBehaviour
 
         upgradeLevel++;
 
+        // Update income in MoneyManager
         MoneyManager.Instance.RegisterVendingMachine(this, CurrentIncome);
 
         if (buySound) audioSource.PlayOneShot(buySound);
@@ -175,18 +197,14 @@ public class VendingMachine : MonoBehaviour
         HidePopups();
     }
 
-    // ---------------------------------------------------------
-    // Hide popups
-    // ---------------------------------------------------------
+    // UI sluiten
     void HidePopups()
     {
         buyPopup.SetActive(false);
         upgradePopup.SetActive(false);
     }
 
-    // ---------------------------------------------------------
-    // Triggers
-    // ---------------------------------------------------------
+    // Trigger detectie
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag(playerTag))
